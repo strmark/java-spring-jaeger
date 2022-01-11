@@ -1,5 +1,5 @@
 /**
- * Copyright 2018-2021 The OpenTracing Authors
+ * Copyright 2018-2022 The OpenTracing Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -31,12 +31,10 @@ import io.opentracing.contrib.java.spring.jaeger.starter.JaegerConfigurationProp
 import io.opentracing.contrib.java.spring.jaeger.starter.customizers.B3CodecTracerBuilderCustomizer;
 import io.opentracing.contrib.java.spring.jaeger.starter.customizers.ExpandExceptionLogsTracerBuilderCustomizer;
 import io.opentracing.contrib.java.spring.jaeger.starter.customizers.HigherBitTracerBuilderCustomizer;
-
 import io.opentracing.contrib.java.spring.jaeger.starter.customizers.TraceContextCodecTracerBuilderCustomizer;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-
 import org.apache.thrift.transport.TTransportException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
@@ -59,189 +57,189 @@ import org.springframework.util.StringUtils;
 @EnableConfigurationProperties(JaegerConfigurationProperties.class)
 public class JaegerAutoConfiguration {
 
-  @Autowired(required = false)
-  private List<TracerBuilderCustomizer> tracerCustomizers = Collections.emptyList();
-
-  @Bean
-  public io.opentracing.Tracer tracer(Sampler sampler,
-                                      Reporter reporter,
-                                      Metrics metrics,
-                                      JaegerConfigurationProperties properties) {
-
-    final JaegerTracer.Builder builder =
-        new JaegerTracer.Builder(properties.getServiceName())
-            .withReporter(reporter)
-            .withSampler(sampler)
-            .withTags(properties.determineTags())
-            .withMetrics(metrics);
-
-    tracerCustomizers.forEach(c -> c.customize(builder));
-
-    return builder.build();
-  }
-
-  @ConditionalOnMissingBean
-  @Bean
-  public Reporter reporter(JaegerConfigurationProperties properties,
-                           Metrics metrics,
-                           @Autowired(required = false) ReporterAppender reporterAppender) throws TTransportException {
-
-    List<Reporter> reporters = new LinkedList<>();
-    RemoteReporter remoteReporter = properties.getRemoteReporter();
-
-    JaegerConfigurationProperties.HttpSender httpSender = properties.getHttpSender();
-    if (!StringUtils.isEmpty(httpSender.getUrl())) {
-      reporters.add(getHttpReporter(metrics, remoteReporter, httpSender));
-    } else {
-      reporters.add(getUdpReporter(metrics, remoteReporter, properties.getUdpSender()));
-    }
-
-    if (properties.isLogSpans()) {
-      reporters.add(new LoggingReporter());
-    }
-
-    if (reporterAppender != null) {
-      reporterAppender.append(reporters);
-    }
-
-    return new CompositeReporter(reporters.toArray(new Reporter[reporters.size()]));
-  }
-
-  private Reporter getUdpReporter(Metrics metrics,
-                                  RemoteReporter remoteReporter,
-                                  JaegerConfigurationProperties.UdpSender udpSenderProperties) throws TTransportException {
-    io.jaegertracing.thrift.internal.senders.UdpSender udpSender =
-        new io.jaegertracing.thrift.internal.senders.UdpSender(
-            udpSenderProperties.getHost(), udpSenderProperties.getPort(),
-            udpSenderProperties.getMaxPacketSize());
-
-    return createReporter(metrics, remoteReporter, udpSender);
-  }
-
-  private Reporter getHttpReporter(Metrics metrics,
-                                   RemoteReporter remoteReporter,
-                                   JaegerConfigurationProperties.HttpSender httpSenderProperties) throws TTransportException {
-    io.jaegertracing.thrift.internal.senders.HttpSender.Builder builder =
-        new io.jaegertracing.thrift.internal.senders.HttpSender.Builder(httpSenderProperties.getUrl());
-    if (httpSenderProperties.getMaxPayload() != null) {
-      builder = builder.withMaxPacketSize(httpSenderProperties.getMaxPayload());
-    }
-    if (!StringUtils.isEmpty(httpSenderProperties.getUsername())
-        && !StringUtils.isEmpty(httpSenderProperties.getPassword())) {
-      builder.withAuth(httpSenderProperties.getUsername(), httpSenderProperties.getPassword());
-    } else if (!StringUtils.isEmpty(httpSenderProperties.getAuthToken())) {
-      builder.withAuth(httpSenderProperties.getAuthToken());
-    }
-
-    return createReporter(metrics, remoteReporter, builder.build());
-  }
-
-  private Reporter createReporter(Metrics metrics,
-                                  RemoteReporter remoteReporter, Sender udpSender) {
-    io.jaegertracing.internal.reporters.RemoteReporter.Builder builder =
-        new io.jaegertracing.internal.reporters.RemoteReporter.Builder()
-            .withSender(udpSender)
-            .withMetrics(metrics);
-
-    if (remoteReporter.getFlushInterval() != null) {
-      builder.withFlushInterval(remoteReporter.getFlushInterval());
-    }
-    if (remoteReporter.getMaxQueueSize() != null) {
-      builder.withMaxQueueSize(remoteReporter.getMaxQueueSize());
-    }
-
-    return builder.build();
-  }
-
-  @ConditionalOnMissingBean
-  @Bean
-  public Metrics metrics(MetricsFactory metricsFactory) {
-    return new Metrics(metricsFactory);
-  }
-
-  @ConditionalOnMissingBean
-  @Bean
-  public MetricsFactory metricsFactory() {
-    return new NoopMetricsFactory();
-  }
-
-  /**
-   * Decide on what Sampler to use based on the various configuration options in
-   * JaegerConfigurationProperties Fallback to ConstSampler(true) when no Sampler is configured
-   */
-  @ConditionalOnMissingBean
-  @Bean
-  public Sampler sampler(JaegerConfigurationProperties properties, Metrics metrics) {
-    if (properties.getConstSampler().getDecision() != null) {
-      return new ConstSampler(properties.getConstSampler().getDecision());
-    }
-
-    if (properties.getProbabilisticSampler().getSamplingRate() != null) {
-      return new ProbabilisticSampler(properties.getProbabilisticSampler().getSamplingRate());
-    }
-
-    if (properties.getRateLimitingSampler().getMaxTracesPerSecond() != null) {
-      return new RateLimitingSampler(properties.getRateLimitingSampler().getMaxTracesPerSecond());
-    }
-
-    if (!StringUtils.isEmpty(properties.getRemoteControlledSampler().getHostPort())) {
-      JaegerConfigurationProperties.RemoteControlledSampler samplerProperties
-          = properties.getRemoteControlledSampler();
-
-      String hostPort = samplerProperties.getHostPort();
-
-      if (samplerProperties.getHost() != null && !samplerProperties.getHost().isEmpty()) {
-        hostPort = samplerProperties.getHost() + ":" + samplerProperties.getPort();
-      }
-
-      return new RemoteControlledSampler.Builder(properties.getServiceName())
-          .withSamplingManager(new HttpSamplingManager(hostPort))
-          .withInitialSampler(
-              new ProbabilisticSampler(samplerProperties.getSamplingRate()))
-          .withMetrics(metrics)
-          .build();
-    }
-
-    //fallback to sampling every trace
-    return new ConstSampler(true);
-  }
-
-  @Configuration
-  @ConditionalOnProperty(value = "opentracing.jaeger.enable-b3-propagation")
-  public static class B3CodecConfiguration {
+    @Autowired(required = false)
+    private List<TracerBuilderCustomizer> tracerCustomizers = Collections.emptyList();
 
     @Bean
-    public TracerBuilderCustomizer b3CodecJaegerTracerCustomizer() {
-      return new B3CodecTracerBuilderCustomizer();
+    public io.opentracing.Tracer tracer(Sampler sampler,
+                                        Reporter reporter,
+                                        Metrics metrics,
+                                        JaegerConfigurationProperties properties) {
+
+        final JaegerTracer.Builder builder =
+                new JaegerTracer.Builder(properties.getServiceName())
+                        .withReporter(reporter)
+                        .withSampler(sampler)
+                        .withTags(properties.determineTags())
+                        .withMetrics(metrics);
+
+        tracerCustomizers.forEach(c -> c.customize(builder));
+
+        return builder.build();
     }
-  }
 
-  @Configuration
-  @ConditionalOnProperty(value = "opentracing.jaeger.enable-w3c-propagation")
-  public static class TraceContextCodecConfiguration {
-
+    @ConditionalOnMissingBean
     @Bean
-    public TracerBuilderCustomizer traceContextCodecJaegerTracerCustomizer() {
-      return new TraceContextCodecTracerBuilderCustomizer();
-    }
-  }
+    public Reporter reporter(JaegerConfigurationProperties properties,
+                             Metrics metrics,
+                             @Autowired(required = false) ReporterAppender reporterAppender) throws TTransportException {
 
-  @Configuration
-  @ConditionalOnProperty(value = "opentracing.jaeger.enable-128-bit-traces")
-  public static class HigherBitTraceConfiguration {
+        List<Reporter> reporters = new LinkedList<>();
+        RemoteReporter remoteReporter = properties.getRemoteReporter();
+
+        JaegerConfigurationProperties.HttpSender httpSender = properties.getHttpSender();
+        if (!StringUtils.isEmpty(httpSender.getUrl())) {
+            reporters.add(getHttpReporter(metrics, remoteReporter, httpSender));
+        } else {
+            reporters.add(getUdpReporter(metrics, remoteReporter, properties.getUdpSender()));
+        }
+
+        if (properties.isLogSpans()) {
+            reporters.add(new LoggingReporter());
+        }
+
+        if (reporterAppender != null) {
+            reporterAppender.append(reporters);
+        }
+
+        return new CompositeReporter(reporters.toArray(new Reporter[reporters.size()]));
+    }
+
+    private Reporter getUdpReporter(Metrics metrics,
+                                    RemoteReporter remoteReporter,
+                                    JaegerConfigurationProperties.UdpSender udpSenderProperties) throws TTransportException {
+        io.jaegertracing.thrift.internal.senders.UdpSender udpSender =
+                new io.jaegertracing.thrift.internal.senders.UdpSender(
+                        udpSenderProperties.getHost(), udpSenderProperties.getPort(),
+                        udpSenderProperties.getMaxPacketSize());
+
+        return createReporter(metrics, remoteReporter, udpSender);
+    }
+
+    private Reporter getHttpReporter(Metrics metrics,
+                                     RemoteReporter remoteReporter,
+                                     JaegerConfigurationProperties.HttpSender httpSenderProperties) throws TTransportException {
+        io.jaegertracing.thrift.internal.senders.HttpSender.Builder builder =
+                new io.jaegertracing.thrift.internal.senders.HttpSender.Builder(httpSenderProperties.getUrl());
+        if (httpSenderProperties.getMaxPayload() != null) {
+            builder = builder.withMaxPacketSize(httpSenderProperties.getMaxPayload());
+        }
+        if (!StringUtils.isEmpty(httpSenderProperties.getUsername())
+                && !StringUtils.isEmpty(httpSenderProperties.getPassword())) {
+            builder.withAuth(httpSenderProperties.getUsername(), httpSenderProperties.getPassword());
+        } else if (!StringUtils.isEmpty(httpSenderProperties.getAuthToken())) {
+            builder.withAuth(httpSenderProperties.getAuthToken());
+        }
+
+        return createReporter(metrics, remoteReporter, builder.build());
+    }
+
+    private Reporter createReporter(Metrics metrics,
+                                    RemoteReporter remoteReporter, Sender udpSender) {
+        io.jaegertracing.internal.reporters.RemoteReporter.Builder builder =
+                new io.jaegertracing.internal.reporters.RemoteReporter.Builder()
+                        .withSender(udpSender)
+                        .withMetrics(metrics);
+
+        if (remoteReporter.getFlushInterval() != null) {
+            builder.withFlushInterval(remoteReporter.getFlushInterval());
+        }
+        if (remoteReporter.getMaxQueueSize() != null) {
+            builder.withMaxQueueSize(remoteReporter.getMaxQueueSize());
+        }
+
+        return builder.build();
+    }
+
+    @ConditionalOnMissingBean
     @Bean
-    public TracerBuilderCustomizer higherBitJaegerTracerCustomizer() {
-      return new HigherBitTracerBuilderCustomizer();
+    public Metrics metrics(MetricsFactory metricsFactory) {
+        return new Metrics(metricsFactory);
     }
-  }
 
-  @Configuration
-  @ConditionalOnProperty(value = "opentracing.jaeger.expand-exception-logs")
-  public static class ExpandExceptionLogsConfiguration {
-
+    @ConditionalOnMissingBean
     @Bean
-    public TracerBuilderCustomizer expandExceptionLogsJaegerTracerCustomizer() {
-      return new ExpandExceptionLogsTracerBuilderCustomizer();
+    public MetricsFactory metricsFactory() {
+        return new NoopMetricsFactory();
     }
-  }
+
+    /**
+     * Decide on what Sampler to use based on the various configuration options in
+     * JaegerConfigurationProperties Fallback to ConstSampler(true) when no Sampler is configured
+     */
+    @ConditionalOnMissingBean
+    @Bean
+    public Sampler sampler(JaegerConfigurationProperties properties, Metrics metrics) {
+        if (properties.getConstSampler().getDecision() != null) {
+            return new ConstSampler(properties.getConstSampler().getDecision());
+        }
+
+        if (properties.getProbabilisticSampler().getSamplingRate() != null) {
+            return new ProbabilisticSampler(properties.getProbabilisticSampler().getSamplingRate());
+        }
+
+        if (properties.getRateLimitingSampler().getMaxTracesPerSecond() != null) {
+            return new RateLimitingSampler(properties.getRateLimitingSampler().getMaxTracesPerSecond());
+        }
+
+        if (!StringUtils.isEmpty(properties.getRemoteControlledSampler().getHostPort())) {
+            JaegerConfigurationProperties.RemoteControlledSampler samplerProperties
+                    = properties.getRemoteControlledSampler();
+
+            String hostPort = samplerProperties.getHostPort();
+
+            if (samplerProperties.getHost() != null && !samplerProperties.getHost().isEmpty()) {
+                hostPort = samplerProperties.getHost() + ":" + samplerProperties.getPort();
+            }
+
+            return new RemoteControlledSampler.Builder(properties.getServiceName())
+                    .withSamplingManager(new HttpSamplingManager(hostPort))
+                    .withInitialSampler(
+                            new ProbabilisticSampler(samplerProperties.getSamplingRate()))
+                    .withMetrics(metrics)
+                    .build();
+        }
+
+        //fallback to sampling every trace
+        return new ConstSampler(true);
+    }
+
+    @Configuration
+    @ConditionalOnProperty(value = "opentracing.jaeger.enable-b3-propagation")
+    public static class B3CodecConfiguration {
+
+        @Bean
+        public TracerBuilderCustomizer b3CodecJaegerTracerCustomizer() {
+            return new B3CodecTracerBuilderCustomizer();
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(value = "opentracing.jaeger.enable-w3c-propagation")
+    public static class TraceContextCodecConfiguration {
+
+        @Bean
+        public TracerBuilderCustomizer traceContextCodecJaegerTracerCustomizer() {
+            return new TraceContextCodecTracerBuilderCustomizer();
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(value = "opentracing.jaeger.enable-128-bit-traces")
+    public static class HigherBitTraceConfiguration {
+        @Bean
+        public TracerBuilderCustomizer higherBitJaegerTracerCustomizer() {
+            return new HigherBitTracerBuilderCustomizer();
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(value = "opentracing.jaeger.expand-exception-logs")
+    public static class ExpandExceptionLogsConfiguration {
+
+        @Bean
+        public TracerBuilderCustomizer expandExceptionLogsJaegerTracerCustomizer() {
+            return new ExpandExceptionLogsTracerBuilderCustomizer();
+        }
+    }
 }

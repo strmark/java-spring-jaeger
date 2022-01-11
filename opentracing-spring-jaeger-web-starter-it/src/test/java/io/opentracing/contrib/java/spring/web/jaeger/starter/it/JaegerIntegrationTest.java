@@ -1,5 +1,5 @@
 /**
- * Copyright 2018-2020 The OpenTracing Authors
+ * Copyright 2018-2022 The OpenTracing Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -16,9 +16,8 @@ package io.opentracing.contrib.java.spring.web.jaeger.starter.it;
 import java.util.concurrent.TimeUnit;
 import org.assertj.core.api.Assertions;
 import org.awaitility.Awaitility;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -26,26 +25,27 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.web.client.RestTemplate;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(
     classes = DemoSpringBootWebApplication.class,
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
 )
 @ContextConfiguration(initializers = JaegerIntegrationTest.Initializer.class)
+@Testcontainers
 public class JaegerIntegrationTest {
-
 
   private static final int QUERY_PORT = 16686;
   private static final int COLLECTOR_PORT = 14268;
   private static final String SERVICE_NAME = "spring-boot-test";
 
-  @ClassRule
+  @Container
   public static GenericContainer jaeger
       = new GenericContainer("jaegertracing/all-in-one:1.4")
       .withExposedPorts(COLLECTOR_PORT, QUERY_PORT)

@@ -1,5 +1,5 @@
 /**
- * Copyright 2018-2019 The OpenTracing Authors
+ * Copyright 2018-2022 The OpenTracing Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -16,7 +16,6 @@ package io.opentracing.contrib.java.spring.jaeger.starter;
 import io.jaegertracing.Configuration;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.DeprecatedConfigurationProperty;

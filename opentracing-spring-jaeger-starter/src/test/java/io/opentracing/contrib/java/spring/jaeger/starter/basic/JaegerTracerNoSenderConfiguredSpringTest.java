@@ -1,5 +1,5 @@
 /**
- * Copyright 2018-2020 The OpenTracing Authors
+ * Copyright 2018-2022 The OpenTracing Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -11,28 +11,27 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package io.opentracing.contrib.java.spring.jaeger.starter.basic;
 
-import static org.assertj.core.api.Java6Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opentracing.contrib.java.spring.jaeger.starter.AbstractSenderSpringTest;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.context.TestPropertySource;
 
 @TestPropertySource(
-    properties = {
-        "spring.main.banner-mode=off"
-    }
+        properties = {
+                "spring.main.banner-mode=off"
+        }
 )
 public class JaegerTracerNoSenderConfiguredSpringTest extends AbstractSenderSpringTest {
 
-  @Test
-  public void testExpectedReporter() {
-    assertThat(tracer).isNotNull();
-    assertThat(tracer).isInstanceOf(io.jaegertracing.internal.JaegerTracer.class);
+    @Test
+    public void testExpectedReporter() {
+        assertThat(tracer).isNotNull();
+        assertThat(tracer).isInstanceOf(io.jaegertracing.internal.JaegerTracer.class);
 
-    assertSenderClass(io.jaegertracing.thrift.internal.senders.UdpSender.class);
-  }
+        assertSenderClass(io.jaegertracing.thrift.internal.senders.UdpSender.class);
+    }
 
 }

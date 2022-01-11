@@ -1,5 +1,5 @@
 /**
- * Copyright 2018-2020 The OpenTracing Authors
+ * Copyright 2018-2022 The OpenTracing Authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -11,25 +11,22 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package io.opentracing.contrib.java.spring.jaeger.starter;
 
 import io.opentracing.Tracer;
-import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
-@RunWith(SpringRunner.class)
+//@ExtendWith(SpringExtension.class)
 @SpringBootTest(classes = {
-    JaegerAutoConfiguration.class
+        JaegerAutoConfiguration.class
 })
 public abstract class AbstractTracerSpringTest {
 
-  @Autowired(required = false)
-  protected Tracer tracer;
+    @Autowired(required = false)
+    protected Tracer tracer;
 
-  protected io.jaegertracing.internal.JaegerTracer getTracer() {
-    return (io.jaegertracing.internal.JaegerTracer) tracer;
-  }
+    protected io.jaegertracing.internal.JaegerTracer getTracer() {
+        return (io.jaegertracing.internal.JaegerTracer) tracer;
+    }
 }
